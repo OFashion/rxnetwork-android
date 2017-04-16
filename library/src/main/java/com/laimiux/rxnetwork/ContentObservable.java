@@ -13,11 +13,6 @@ final class ContentObservable {
         throw new AssertionError("No instances");
     }
 
-    /**
-     * Create Observable that wraps BroadcastReceiver and emits received intents.
-     *
-     * @param filter Selects the Intent broadcasts to be received.
-     */
     static Flowable<Intent> fromBroadcast(Context context, IntentFilter filter) {
 
         return Flowable.create(new OnSubscribeBroadcastRegister(context, filter, null, null), BackpressureStrategy.LATEST);
