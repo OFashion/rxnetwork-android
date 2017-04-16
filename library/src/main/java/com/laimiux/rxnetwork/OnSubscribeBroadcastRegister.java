@@ -6,44 +6,50 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 
-import rx.Observable;
-import rx.Subscriber;
-import rx.Subscription;
-import rx.functions.Action0;
-import rx.subscriptions.Subscriptions;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
+import io.reactivex.functions.Cancellable;
 
-class OnSubscribeBroadcastRegister implements Observable.OnSubscribe<Intent> {
+class OnSubscribeBroadcastRegister implements FlowableOnSubscribe<Intent> {
+
 
     private final Context context;
     private final IntentFilter intentFilter;
     private final String broadcastPermission;
     private final Handler schedulerHandler;
+    private FlowableEmitter<Intent> flowableEmitter;
 
-    public OnSubscribeBroadcastRegister(Context context, IntentFilter intentFilter, String broadcastPermission, Handler schedulerHandler) {
+    OnSubscribeBroadcastRegister(Context context, IntentFilter intentFilter, String broadcastPermission, Handler schedulerHandler) {
         this.context = context;
         this.intentFilter = intentFilter;
         this.broadcastPermission = broadcastPermission;
         this.schedulerHandler = schedulerHandler;
     }
 
+
     @Override
-    public void call(final Subscriber<? super Intent> subscriber) {
+    public void subscribe(FlowableEmitter<Intent> emitter) throws Exception {
+        this.flowableEmitter = emitter;
+
         final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                subscriber.onNext(intent);
+                if (flowableEmitter != null) {
+                    flowableEmitter.onNext(intent);
+                }
             }
         };
-
-        final Subscription subscription = Subscriptions.create(new Action0() {
+        context.registerReceiver(broadcastReceiver, intentFilter, broadcastPermission, schedulerHandler);
+        emitter.setCancellable(new Cancellable() {
             @Override
-            public void call() {
+            public void cancel() throws Exception {
                 context.unregisterReceiver(broadcastReceiver);
+                flowableEmitter = null;
+
             }
         });
 
-        subscriber.add(subscription);
-        context.registerReceiver(broadcastReceiver, intentFilter, broadcastPermission, schedulerHandler);
-
     }
+
+
 }
